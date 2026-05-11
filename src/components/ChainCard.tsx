@@ -128,15 +128,23 @@ export function ChainCard({
         </div>
       )}
 
-      {/* Primary chain badge */}
-      {chain?.isPrimary && !isEmpty && (
-        <div
-          className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded"
-          style={{ backgroundColor: `${color}22`, color: color }}
-        >
-          ⚡ Arc — цель
-        </div>
-      )}
+      {/* Badges row */}
+      <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+        {chain?.isPrimary && !isEmpty && (
+          <div
+            className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded"
+            style={{ backgroundColor: `${color}22`, color: color }}
+          >
+            ⚡ Arc — цель
+          </div>
+        )}
+        {balance.isLive && !isEmpty && (
+          <div className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+            LIVE
+          </div>
+        )}
+      </div>
     </button>
   );
 }

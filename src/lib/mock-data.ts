@@ -63,7 +63,7 @@ export const MOCK_BALANCES: BalancesResponse = {
     {
       chainId: "Arc_Testnet",
       chainName: "Arc Testnet",
-      confirmedBalance: "0.00",
+      confirmedBalance: "5.00",
       pendingBalance: "0.00",
       depositorAddress: "0x1234...abcd",
     },

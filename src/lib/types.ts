@@ -6,10 +6,12 @@ export interface ChainBalance {
   confirmedBalance: string;
   pendingBalance: string;
   depositorAddress?: string;
+  /** true — баланс считан с реального блокчейна, не мок */
+  isLive?: boolean;
 }
 
 export interface BalancesResponse {
-  /** true — работаем с моковыми данными (нет приватных ключей) */
+  /** true — работаем с моковыми данными (нет ключей) */
   isDemo: boolean;
   networkType: "testnet" | "mainnet";
   token: "USDC";
@@ -17,13 +19,15 @@ export interface BalancesResponse {
   totalPending: string;
   chains: ChainBalance[];
   fetchedAt: string;
+  /** Адрес кошелька (если задан WALLET_ADDRESS) */
+  walletAddress?: string;
 }
 
 export type TxStatus = "pending" | "confirmed" | "failed";
 
 export interface Transaction {
   id: string;
-  type: "deposit" | "spend";
+  type: "deposit" | "spend" | "consolidate";
   chainId: string;
   amount: string;
   token: "USDC";
