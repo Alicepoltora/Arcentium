@@ -1,196 +1,139 @@
 /**
- * Обёртка над @circle-fin/app-kit
+ * Чтение USDC-балансов через viem (публичные RPC-эндпоинты).
  *
  * Логика:
- *  - Если EVM_PRIVATE_KEY задан → реальные запросы к App Kit на testnet
- *  - Если ключей нет → возвращает mock-данные (demo-режим)
+ *  - Если WALLET_ADDRESS задан → реальные запросы к EVM-чейнам через публичные RPC
+ *  - Если не задан → возвращает mock-данные (demo-режим)
+ *
+ * Solana и другие не-EVM чейны всегда используют mock (нет viem-поддержки).
+ * Consolidate() работает в симуляции — для реальных транзакций нужен приватный ключ.
  */
 
-import type { BalancesResponse, ConsolidateRequest, ConsolidateResponse, Transaction } from "./types";
-import { MOCK_BALANCES, MOCK_TRANSACTIONS, generateMockConsolidationTxs } from "./mock-data";
+import { createPublicClient, http, formatUnits } from "viem";
+import type {
+  BalancesResponse,
+  ConsolidateRequest,
+  ConsolidateResponse,
+  Transaction,
+} from "./types";
+import {
+  MOCK_BALANCES,
+  MOCK_TRANSACTIONS,
+  generateMockConsolidationTxs,
+} from "./mock-data";
+import { TESTNET_CHAINS } from "./chains";
+
+// Минимальный ABI для ERC-20 balanceOf
+const ERC20_BALANCE_ABI = [
+  {
+    type: "function",
+    name: "balanceOf",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+  },
+] as const;
 
 export function isConfigured(): boolean {
-  return !!process.env.EVM_PRIVATE_KEY;
+  return !!process.env.WALLET_ADDRESS;
 }
 
 // ─── Balances ───────────────────────────────────────────────────────────────
 
 export async function fetchBalances(): Promise<BalancesResponse> {
-  if (!isConfigured()) {
+  const walletAddress = process.env.WALLET_ADDRESS;
+
+  if (!walletAddress) {
     // Demo-режим: возвращаем мок с актуальным временем
     return { ...MOCK_BALANCES, fetchedAt: new Date().toISOString() };
   }
 
-  // Ленивый импорт — App Kit нельзя инициализировать на клиенте
-  const { AppKit } = await import("@circle-fin/app-kit");
-  const { createViemAdapterFromPrivateKey } = await import(
-    "@circle-fin/adapter-viem-v2"
+  const chainResults = await Promise.allSettled(
+    TESTNET_CHAINS.map(async (chain) => {
+      // Solana и чейны без RPC-конфига — пропускаем (используем 0)
+      if (!chain.rpcUrl || !chain.usdcAddress) {
+        return {
+          chainId: chain.id,
+          chainName: chain.name,
+          confirmedBalance: "0",
+          pendingBalance: "0",
+          depositorAddress: walletAddress,
+        };
+      }
+
+      const client = createPublicClient({
+        chain: {
+          id: chain.chainId!,
+          name: chain.name,
+          nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+          rpcUrls: { default: { http: [chain.rpcUrl] } },
+        },
+        transport: http(chain.rpcUrl, { timeout: 8000 }),
+      });
+
+      const raw = await client.readContract({
+        address: chain.usdcAddress as `0x${string}`,
+        abi: ERC20_BALANCE_ABI,
+        functionName: "balanceOf",
+        args: [walletAddress as `0x${string}`],
+      });
+
+      const balance = formatUnits(raw, 6); // USDC = 6 decimals
+
+      return {
+        chainId: chain.id,
+        chainName: chain.name,
+        confirmedBalance: balance,
+        pendingBalance: "0",
+        depositorAddress: walletAddress,
+      };
+    })
   );
 
-  const kit = new AppKit();
-
-  const evmAdapter = createViemAdapterFromPrivateKey({
-    privateKey: process.env.EVM_PRIVATE_KEY as `0x${string}`,
+  const chains = chainResults.map((result, i) => {
+    if (result.status === "fulfilled") return result.value;
+    // Если чейн недоступен — возвращаем 0 без падения
+    return {
+      chainId: TESTNET_CHAINS[i].id,
+      chainName: TESTNET_CHAINS[i].name,
+      confirmedBalance: "0",
+      pendingBalance: "0",
+      depositorAddress: walletAddress,
+    };
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sources: any[] = [{ adapter: evmAdapter }];
-
-  if (process.env.SOLANA_PRIVATE_KEY) {
-    const { createSolanaAdapterFromPrivateKey } = await import(
-      "@circle-fin/adapter-solana-kit"
-    );
-    const solanaAdapter = createSolanaAdapterFromPrivateKey({
-      privateKey: process.env.SOLANA_PRIVATE_KEY,
-    });
-    sources.push({ adapter: solanaAdapter });
-  }
-
-  const result = await kit.unifiedBalance.getBalances({
-    sources,
-    networkType: "testnet",
-    includePending: true,
-  });
-
-  // Нормализуем ответ App Kit в наш формат
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const raw = result as any;
-  const chains = (raw.breakdown ?? []).flatMap(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (depositor: any) =>
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (depositor.breakdown ?? []).map((entry: any) => ({
-        chainId: entry.chain as string,
-        chainName: entry.chain as string,
-        confirmedBalance: String(entry.confirmedBalance ?? "0"),
-        pendingBalance: String(entry.pendingBalance ?? "0"),
-        depositorAddress: depositor.depositor as string,
-      }))
-  );
+  const totalConfirmed = chains
+    .reduce((sum, c) => sum + parseFloat(c.confirmedBalance || "0"), 0)
+    .toFixed(6);
 
   return {
     isDemo: false,
     networkType: "testnet",
     token: "USDC",
-    totalConfirmed: String(raw.totalConfirmedBalance ?? "0"),
-    totalPending: String(raw.totalPendingBalance ?? "0"),
+    totalConfirmed,
+    totalPending: "0",
     chains,
     fetchedAt: new Date().toISOString(),
   };
 }
 
 // ─── Consolidate ─────────────────────────────────────────────────────────────
+// Для реального consolidate нужен приватный ключ + Circle App Kit (будущая фича).
+// Пока — симуляция с визуальным feedback.
 
 export async function consolidate(
   req: ConsolidateRequest
 ): Promise<ConsolidateResponse> {
-  if (!isConfigured()) {
-    // Demo-режим: симулируем задержку и возвращаем фейковые транзакции
-    await sleep(2000);
-    const txs = generateMockConsolidationTxs(
-      req.sourceChains,
-      req.targetChainId,
-      req.amount
-    );
-    return { success: true, transactions: txs };
-  }
-
-  const { AppKit } = await import("@circle-fin/app-kit");
-  const { createViemAdapterFromPrivateKey } = await import(
-    "@circle-fin/adapter-viem-v2"
+  await sleep(2000);
+  const txs = generateMockConsolidationTxs(
+    req.sourceChains,
+    req.targetChainId,
+    req.amount
   );
-
-  const kit = new AppKit();
-
-  const evmAdapter = createViemAdapterFromPrivateKey({
-    privateKey: process.env.EVM_PRIVATE_KEY as `0x${string}`,
-  });
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const fromSources: any[] = [{ adapter: evmAdapter }];
-
-  if (process.env.SOLANA_PRIVATE_KEY) {
-    const { createSolanaAdapterFromPrivateKey } = await import(
-      "@circle-fin/adapter-solana-kit"
-    );
-    const solanaAdapter = createSolanaAdapterFromPrivateKey({
-      privateKey: process.env.SOLANA_PRIVATE_KEY,
-    });
-    fromSources.push({ adapter: solanaAdapter });
-  }
-
-  try {
-    // Шаг 1: депозиты из каждого источника
-    const depositTxs: Transaction[] = [];
-
-    for (const source of fromSources) {
-      // Определяем, на каком чейне у этого кошелька есть баланс
-      // (В реальной реализации вы бы итерировались по req.sourceChains)
-      try {
-        const depositResult = await kit.unifiedBalance.deposit({
-          from: { adapter: source.adapter, chain: req.sourceChains[0] },
-          amount: (parseFloat(req.amount) / fromSources.length).toFixed(2),
-          token: "USDC",
-        });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const r = depositResult as any;
-        depositTxs.push({
-          id: `dep-${Date.now()}`,
-          type: "deposit",
-          chainId: req.sourceChains[0],
-          amount: req.amount,
-          token: "USDC",
-          txHash: r.txHash,
-          explorerUrl: r.explorerUrl,
-          status: "confirmed",
-          timestamp: new Date().toISOString(),
-        });
-      } catch (e) {
-        console.error("Deposit error:", e);
-      }
-    }
-
-    // Шаг 2: spend на целевой чейн
-    const spendResult = await kit.unifiedBalance.spend({
-      amount: req.amount,
-      token: "USDC",
-      from: fromSources.map((s) => ({ adapter: s.adapter })),
-      to: {
-        adapter: evmAdapter,
-        chain: req.targetChainId,
-        recipientAddress: req.recipientAddress,
-      },
-    });
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sr = spendResult as any;
-    const spendTx: Transaction = {
-      id: `spend-${Date.now()}`,
-      type: "spend",
-      chainId: req.targetChainId,
-      targetChainId: req.targetChainId,
-      amount: req.amount,
-      token: "USDC",
-      txHash: sr.txHash,
-      explorerUrl: sr.explorerUrl,
-      status: "confirmed",
-      timestamp: new Date().toISOString(),
-    };
-
-    return {
-      success: true,
-      transactions: [...depositTxs, spendTx],
-    };
-  } catch (error) {
-    return {
-      success: false,
-      transactions: [],
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
+  return { success: true, transactions: txs };
 }
 
-// ─── Mock history ─────────────────────────────────────────────────────────────
+// ─── Transaction history ─────────────────────────────────────────────────────
 
 export async function fetchTransactions(): Promise<Transaction[]> {
   return MOCK_TRANSACTIONS;

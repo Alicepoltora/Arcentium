@@ -9,11 +9,6 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@circle-fin/adapter-solana-kit": "latest",
-    "@circle-fin/adapter-viem-v2": "latest",
-    "@circle-fin/app-kit": "latest",
-    "@solana/kit": "latest",
-    "@solana/web3.js": "^1.95.3",
     "lucide-react": "^0.408.0",
     "next": "^14.2.5",
     "react": "^18.3.1",

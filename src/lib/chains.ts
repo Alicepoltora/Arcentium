@@ -4,7 +4,7 @@
 export type NetworkType = "testnet" | "mainnet";
 
 export interface ChainConfig {
-  /** ID чейна в App Kit SDK */
+  /** ID чейна */
   id: string;
   /** Человекочитаемое название */
   name: string;
@@ -19,6 +19,12 @@ export interface ChainConfig {
   supportsUnifiedBalance: boolean;
   /** Это основной чейн для консолидации (Arc) */
   isPrimary?: boolean;
+  /** Public RPC URL для чтения баланса через viem (только EVM) */
+  rpcUrl?: string;
+  /** Адрес USDC-контракта на этом чейне */
+  usdcAddress?: string;
+  /** Chain ID в числовом виде (для viem) */
+  chainId?: number;
 }
 
 // ── Testnet chains ──────────────────────────────────────────────────────────
@@ -32,6 +38,9 @@ export const TESTNET_CHAINS: ChainConfig[] = [
     icon: "Ξ",
     explorerUrl: "https://sepolia.etherscan.io",
     supportsUnifiedBalance: true,
+    chainId: 11155111,
+    rpcUrl: "https://rpc.sepolia.org",
+    usdcAddress: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
   },
   {
     id: "Base_Sepolia",
@@ -41,6 +50,9 @@ export const TESTNET_CHAINS: ChainConfig[] = [
     icon: "⬟",
     explorerUrl: "https://sepolia.basescan.org",
     supportsUnifiedBalance: true,
+    chainId: 84532,
+    rpcUrl: "https://sepolia.base.org",
+    usdcAddress: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
   },
   {
     id: "Arbitrum_Sepolia",
@@ -50,6 +62,9 @@ export const TESTNET_CHAINS: ChainConfig[] = [
     icon: "◈",
     explorerUrl: "https://sepolia.arbiscan.io",
     supportsUnifiedBalance: true,
+    chainId: 421614,
+    rpcUrl: "https://sepolia-rollup.arbitrum.io/rpc",
+    usdcAddress: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
   },
   {
     id: "OP_Sepolia",
@@ -59,6 +74,9 @@ export const TESTNET_CHAINS: ChainConfig[] = [
     icon: "⊙",
     explorerUrl: "https://sepolia-optimism.etherscan.io",
     supportsUnifiedBalance: true,
+    chainId: 11155420,
+    rpcUrl: "https://sepolia.optimism.io",
+    usdcAddress: "0x5fd84259d66Cd46123540766Be93DFE6D43130D7",
   },
   {
     id: "Polygon_PoS_Amoy",
@@ -68,6 +86,9 @@ export const TESTNET_CHAINS: ChainConfig[] = [
     icon: "⬡",
     explorerUrl: "https://amoy.polygonscan.com",
     supportsUnifiedBalance: true,
+    chainId: 80002,
+    rpcUrl: "https://rpc-amoy.polygon.technology",
+    usdcAddress: "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582",
   },
   {
     id: "Avalanche_Fuji",
@@ -77,6 +98,9 @@ export const TESTNET_CHAINS: ChainConfig[] = [
     icon: "△",
     explorerUrl: "https://testnet.snowtrace.io",
     supportsUnifiedBalance: true,
+    chainId: 43113,
+    rpcUrl: "https://api.avax-test.network/ext/bc/C/rpc",
+    usdcAddress: "0x5425890298aed601595a70AB815c96711a31Bc65",
   },
   {
     id: "Solana_Devnet",
@@ -86,6 +110,7 @@ export const TESTNET_CHAINS: ChainConfig[] = [
     icon: "◎",
     explorerUrl: "https://explorer.solana.com/?cluster=devnet",
     supportsUnifiedBalance: true,
+    // Solana uses SPL tokens — не читается через viem, баланс приходит из демо-данных
   },
   {
     id: "Unichain_Sepolia",
@@ -95,6 +120,9 @@ export const TESTNET_CHAINS: ChainConfig[] = [
     icon: "◉",
     explorerUrl: "https://unichain-sepolia.blockscout.com",
     supportsUnifiedBalance: true,
+    chainId: 1301,
+    rpcUrl: "https://sepolia.unichain.org",
+    usdcAddress: "0x31d0220469e10c4E71834a79b1f276d740d3768F",
   },
   {
     id: "Arc_Testnet",
@@ -105,6 +133,9 @@ export const TESTNET_CHAINS: ChainConfig[] = [
     explorerUrl: "https://testnet.arcscan.app",
     supportsUnifiedBalance: true,
     isPrimary: true,
+    chainId: 5042002,
+    rpcUrl: "https://rpc.testnet.arc.network",
+    usdcAddress: "0x3600000000000000000000000000000000000000",
   },
 ];
 
