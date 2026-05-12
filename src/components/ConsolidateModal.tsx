@@ -25,6 +25,8 @@ interface ConsolidateModalProps {
   initialSelected: string[];
   onClose: () => void;
   onSuccess: (txs: Transaction[]) => void;
+  /** Connected wallet address — used as recipient automatically */
+  walletAddress?: string;
 }
 
 export function ConsolidateModal({
@@ -32,6 +34,7 @@ export function ConsolidateModal({
   initialSelected,
   onClose,
   onSuccess,
+  walletAddress,
 }: ConsolidateModalProps) {
   const network = balances.networkType;
   const allChains = getChains(network);
@@ -53,8 +56,11 @@ export function ConsolidateModal({
     )
   );
   const [targetChainId, setTargetChainId] = useState(primaryChain.id);
+  // Prefer connected wallet; fall back to depositor address from env
   const [recipientAddress, setRecipientAddress] = useState(
-    balances.chains.find((c) => c.depositorAddress)?.depositorAddress ?? ""
+    walletAddress ||
+      balances.chains.find((c) => c.depositorAddress)?.depositorAddress ||
+      ""
   );
   const [isProcessing, setIsProcessing] = useState(false);
   const [resultTxs, setResultTxs] = useState<Transaction[]>([]);
@@ -337,13 +343,26 @@ export function ConsolidateModal({
               <label className="text-xs text-white/40 mb-1.5 block">
                 Адрес получателя
               </label>
-              <input
-                type="text"
-                value={recipientAddress}
-                onChange={(e) => setRecipientAddress(e.target.value)}
-                placeholder="0x… или оставь пустым для demo"
-                className="w-full px-3 py-2.5 rounded-xl border border-[#232640] bg-[#131520] text-sm text-white/80 placeholder:text-white/20 focus:outline-none focus:border-[#6c5ce7]/50 transition-colors font-mono"
-              />
+              {walletAddress ? (
+                /* Wallet connected — show as read-only badge */
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
+                  <span className="text-xs font-mono text-emerald-400/90 truncate flex-1">
+                    {walletAddress}
+                  </span>
+                  <span className="text-[10px] text-emerald-400/50 flex-shrink-0">
+                    кошелёк
+                  </span>
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  value={recipientAddress}
+                  onChange={(e) => setRecipientAddress(e.target.value)}
+                  placeholder="0x… или оставь пустым для demo"
+                  className="w-full px-3 py-2.5 rounded-xl border border-[#232640] bg-[#131520] text-sm text-white/80 placeholder:text-white/20 focus:outline-none focus:border-[#6c5ce7]/50 transition-colors font-mono"
+                />
+              )}
             </div>
 
             {/* Fee preview */}

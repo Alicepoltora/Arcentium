@@ -1,7 +1,14 @@
 // Demo-данные для работы без приватных ключей
-// Реалистичные балансы USDC на разных чейнах testnet
+// Реалистичные балансы ETH + USDC на разных чейнах testnet
 
-import type { BalancesResponse, Transaction } from "./types";
+import type { BalancesResponse, TokenBalance, Transaction } from "./types";
+
+function ethAndUsdc(eth: string, usdc: string, usdcAddr: string): TokenBalance[] {
+  return [
+    { symbol: "ETH", balance: eth, decimals: 18 },
+    { symbol: "USDC", balance: usdc, decimals: 6, contractAddress: usdcAddr },
+  ];
+}
 
 export const MOCK_BALANCES: BalancesResponse = {
   isDemo: true,
@@ -17,6 +24,7 @@ export const MOCK_BALANCES: BalancesResponse = {
       confirmedBalance: "2.10",
       pendingBalance: "0.00",
       depositorAddress: "0x1234...abcd",
+      tokens: ethAndUsdc("0.0821", "2.10", "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"),
     },
     {
       chainId: "Base_Sepolia",
@@ -24,6 +32,7 @@ export const MOCK_BALANCES: BalancesResponse = {
       confirmedBalance: "3.00",
       pendingBalance: "0.75",
       depositorAddress: "0x1234...abcd",
+      tokens: ethAndUsdc("0.1250", "3.00", "0x036CbD53842c5426634e7929541eC2318f3dCF7e"),
     },
     {
       chainId: "Arbitrum_Sepolia",
@@ -31,6 +40,7 @@ export const MOCK_BALANCES: BalancesResponse = {
       confirmedBalance: "1.25",
       pendingBalance: "0.00",
       depositorAddress: "0x1234...abcd",
+      tokens: ethAndUsdc("0.0200", "1.25", "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d"),
     },
     {
       chainId: "OP_Sepolia",
@@ -38,6 +48,7 @@ export const MOCK_BALANCES: BalancesResponse = {
       confirmedBalance: "0.52",
       pendingBalance: "0.00",
       depositorAddress: "0x1234...abcd",
+      tokens: ethAndUsdc("0.0150", "0.52", "0x5fd84259d66Cd46123540766Be93DFE6D43130D7"),
     },
     {
       chainId: "Polygon_PoS_Amoy",
@@ -45,6 +56,10 @@ export const MOCK_BALANCES: BalancesResponse = {
       confirmedBalance: "0.80",
       pendingBalance: "0.00",
       depositorAddress: "0x1234...abcd",
+      tokens: [
+        { symbol: "POL", balance: "12.500", decimals: 18 },
+        { symbol: "USDC", balance: "0.80", decimals: 6, contractAddress: "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582" },
+      ],
     },
     {
       chainId: "Avalanche_Fuji",
@@ -52,6 +67,10 @@ export const MOCK_BALANCES: BalancesResponse = {
       confirmedBalance: "0.30",
       pendingBalance: "0.00",
       depositorAddress: "0x1234...abcd",
+      tokens: [
+        { symbol: "AVAX", balance: "0.4200", decimals: 18 },
+        { symbol: "USDC", balance: "0.30", decimals: 6, contractAddress: "0x5425890298aed601595a70AB815c96711a31Bc65" },
+      ],
     },
     {
       chainId: "Solana_Devnet",
@@ -59,13 +78,20 @@ export const MOCK_BALANCES: BalancesResponse = {
       confirmedBalance: "0.50",
       pendingBalance: "0.00",
       depositorAddress: "FakeSOL...devnet",
+      tokens: [
+        { symbol: "SOL", balance: "0.1500", decimals: 9 },
+        { symbol: "USDC", balance: "0.50", decimals: 6 },
+      ],
     },
     {
       chainId: "Arc_Testnet",
       chainName: "Arc Testnet",
-      confirmedBalance: "0.00",
+      confirmedBalance: "5.00",
       pendingBalance: "0.00",
       depositorAddress: "0x1234...abcd",
+      tokens: [
+        { symbol: "USDC", balance: "5.00", decimals: 6, contractAddress: "0x3600000000000000000000000000000000000000" },
+      ],
     },
   ],
 };

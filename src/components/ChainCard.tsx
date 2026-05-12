@@ -1,14 +1,25 @@
 "use client";
 
 import { getChainById } from "@/lib/chains";
-import type { ChainBalance } from "@/lib/types";
-import { CheckCircle2, Clock, Loader2 } from "lucide-react";
+import type { ChainBalance, TokenBalance } from "@/lib/types";
+import { CheckCircle2, Loader2 } from "lucide-react";
 
 interface ChainCardProps {
   balance: ChainBalance;
   selected: boolean;
   onToggle: (chainId: string) => void;
   networkType: "testnet" | "mainnet";
+}
+
+/** Format a token balance for display */
+function formatBal(bal: string, decimals: number): string {
+  const n = parseFloat(bal);
+  if (isNaN(n) || n === 0) return "0";
+  if (decimals <= 6) return n.toFixed(2); // USDC etc
+  // ETH/AVAX/POL — show up to 4 sig figs, strip trailing zeros
+  if (n >= 1) return n.toFixed(3);
+  if (n >= 0.001) return n.toFixed(4);
+  return n.toExponential(2);
 }
 
 export function ChainCard({
@@ -20,8 +31,13 @@ export function ChainCard({
   const chain = getChainById(balance.chainId, networkType);
   const confirmed = parseFloat(balance.confirmedBalance);
   const pending = parseFloat(balance.pendingBalance);
-  const total = confirmed + pending;
-  const isEmpty = total === 0;
+
+  // A chain is "non-empty" if any token has a balance > 0
+  const tokens = balance.tokens ?? [];
+  const hasAnyBalance =
+    tokens.some((t) => parseFloat(t.balance) > 0) ||
+    confirmed + pending > 0;
+  const isEmpty = !hasAnyBalance;
 
   const color = chain?.color ?? "#6c5ce7";
 
@@ -81,40 +97,58 @@ export function ChainCard({
         </div>
       </div>
 
-      {/* Balance */}
-      <div className="space-y-1">
-        <div className="flex items-baseline gap-1">
-          <span
-            className={`text-xl font-bold tabular-nums ${
-              isEmpty ? "text-white/20" : "text-white"
-            }`}
-          >
-            {confirmed.toFixed(2)}
-          </span>
-          <span className="text-xs text-white/40 font-medium">USDC</span>
+      {/* Token balances */}
+      {tokens.length > 0 ? (
+        <div className="space-y-1.5">
+          {tokens.map((tok) => {
+            const n = parseFloat(tok.balance);
+            const isZero = isNaN(n) || n === 0;
+            return (
+              <div key={tok.symbol} className="flex items-baseline justify-between gap-1">
+                <span className="text-[11px] text-white/35 font-medium flex-shrink-0">
+                  {tok.symbol}
+                </span>
+                <span
+                  className={`text-sm font-bold tabular-nums ${
+                    isZero ? "text-white/20" : "text-white"
+                  }`}
+                >
+                  {formatBal(tok.balance, tok.decimals)}
+                </span>
+              </div>
+            );
+          })}
+
+          {pending > 0 && (
+            <div className="flex items-center gap-1 pt-0.5">
+              <Loader2 size={10} className="text-yellow-400/70 animate-spin flex-shrink-0" />
+              <span className="text-[10px] text-yellow-400/70 tabular-nums">
+                +{pending.toFixed(2)} USDC pending
+              </span>
+            </div>
+          )}
         </div>
-
-        {pending > 0 && (
-          <div className="flex items-center gap-1">
-            <Loader2
-              size={10}
-              className="text-yellow-400/70 animate-spin flex-shrink-0"
-            />
-            <span className="text-[11px] text-yellow-400/70 tabular-nums">
-              +{pending.toFixed(2)} pending
+      ) : (
+        /* Fallback: show USDC only (backward compat) */
+        <div className="space-y-1">
+          <div className="flex items-baseline gap-1">
+            <span className={`text-xl font-bold tabular-nums ${isEmpty ? "text-white/20" : "text-white"}`}>
+              {confirmed.toFixed(2)}
             </span>
+            <span className="text-xs text-white/40 font-medium">USDC</span>
           </div>
-        )}
+          {pending > 0 && (
+            <div className="flex items-center gap-1">
+              <Loader2 size={10} className="text-yellow-400/70 animate-spin flex-shrink-0" />
+              <span className="text-[11px] text-yellow-400/70 tabular-nums">
+                +{pending.toFixed(2)} pending
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
-        {!isEmpty && pending === 0 && (
-          <div className="flex items-center gap-1">
-            <CheckCircle2 size={10} className="text-emerald-400/50 flex-shrink-0" />
-            <span className="text-[11px] text-emerald-400/50">confirmed</span>
-          </div>
-        )}
-      </div>
-
-      {/* Progress bar showing % of total portfolio */}
+      {/* Progress bar (based on USDC) */}
       {!isEmpty && (
         <div className="mt-3 h-0.5 rounded-full bg-white/5 overflow-hidden">
           <div
@@ -128,15 +162,23 @@ export function ChainCard({
         </div>
       )}
 
-      {/* Primary chain badge */}
-      {chain?.isPrimary && !isEmpty && (
-        <div
-          className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded"
-          style={{ backgroundColor: `${color}22`, color: color }}
-        >
-          ⚡ Arc — цель
-        </div>
-      )}
+      {/* Badges */}
+      <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+        {chain?.isPrimary && !isEmpty && (
+          <div
+            className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded"
+            style={{ backgroundColor: `${color}22`, color: color }}
+          >
+            ⚡ Arc — цель
+          </div>
+        )}
+        {balance.isLive && (
+          <div className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+            LIVE
+          </div>
+        )}
+      </div>
     </button>
   );
 }
